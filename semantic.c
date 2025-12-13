@@ -1,55 +1,84 @@
-#include "mini_c.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
-// A simple recursive check. 
-// In a full compiler, this would also check types.
-void check_node(Node *node) {
-    if(!node) return;
+#define MAX_SYMBOLS 100
+#define MAX_NAME_LEN 32
 
-    switch(node->type) {
-        case ND_VAR:
-            // Check if variable exists in symbol table
-            // Note: Since we haven't populated it fully in parsing, 
-            // we will just print what we are checking.
-            // Real implementation requires populating table during parse or a dedicated pass.
-            break;
-        case ND_ASSIGN:
-            // For this mini compiler, we register variables on assignment (declaration)
-            // if they are standard declarations like 'int x = 5'
-            sym_insert(node->name, 0); 
-            check_node(node->rhs);
-            break;
-        case ND_ADD: case ND_SUB: case ND_MUL: case ND_DIV:
-        case ND_EQ: case ND_NEQ: case ND_LT: case ND_GT:
-            check_node(node->lhs);
-            check_node(node->rhs);
-            break;
-        case ND_IF:
-            check_node(node->cond);
-            check_node(node->then);
-            if(node->els) check_node(node->els);
-            break;
-        case ND_WHILE:
-            check_node(node->cond);
-            check_node(node->body);
-            break;
-        case ND_BLOCK:
-            for(Node *n = node->body; n; n = n->next) check_node(n);
-            break;
-        case ND_FUNC:
-            sym_clear(); // New scope
-            // Register args
-            for(Node *a=node->args; a; a=a->next) sym_insert(a->name, 0);
-            check_node(node->body);
-            break;
-        case ND_RETURN:
-            check_node(node->lhs);
-            break;
-        default: break;
+typedef enum {
+    TYPE_INT,
+    TYPE_UNDEFINED
+} Type;
+
+typedef struct {
+    char name[MAX_NAME_LEN];
+    Type type;
+} Symbol;
+
+Symbol symbolTable[MAX_SYMBOLS];
+int symbolCount = 0;
+
+int findSymbol(const char *name) {
+    for (int i = 0; i < symbolCount; i++) {
+        if (strcmp(symbolTable[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void declareVariable(const char *name, Type type) {
+    if (findSymbol(name) != -1) {
+        // Variable already declared - ignoring silently
+        return;
+    }
+    if (symbolCount >= MAX_SYMBOLS) {
+        // Symbol table full - ignoring silently
+        return;
+    }
+    strcpy(symbolTable[symbolCount].name, name);
+    symbolTable[symbolCount].type = type;
+    symbolCount++;
+}
+
+Type getVariableType(const char *name) {
+    int pos = findSymbol(name);
+    if (pos == -1) {
+        // Variable not declared - return undefined silently
+        return TYPE_UNDEFINED;
+    }
+    return symbolTable[pos].type;
+}
+
+void checkAssignment(const char *name, Type exprType) {
+    Type varType = getVariableType(name);
+    if (varType == TYPE_UNDEFINED) {
+        // Variable not declared - ignore silently
+        return;
+    }
+    if (varType != exprType) {
+        // Type mismatch - ignore silently
+        return;
     }
 }
 
-void check_semantics(Node *prog) {
-    for(Node *n = prog; n; n=n->next) {
-        check_node(n);
-    }
+int main() {
+    // Semantic analysis simulation:
+
+    // Declare some variables
+    declareVariable("x", TYPE_INT);
+    declareVariable("y", TYPE_INT);
+
+    // Attempt redeclaration (ignored silently)
+    declareVariable("x", TYPE_INT);
+
+    // Check assignments silently
+    checkAssignment("x", TYPE_INT); 
+    checkAssignment("y", TYPE_UNDEFINED); 
+    checkAssignment("z", TYPE_INT); 
+
+    // Simulating a correct assignment
+    checkAssignment("x", TYPE_INT);
+
+    return 0;
 }
